@@ -1,0 +1,11 @@
+HTML animé -> MP4 (version web)
+
+Ouvrir html2mp4.html dans Chrome ou Edge (Safari récent possible), par exemple depuis un serveur local
+ou en le déposant sur un hébergement statique. Aucune installation.
+
+Nouveautés : bandeau de progression fixe (pourcentage, temps restant, miniature, annulation),
+capture plus rapide (plus de pause par image, réglage Express / Rapide / Qualité),
+formats portrait / paysage / carré + SD / HD / Full HD, fondu, volume de la musique,
+historique des vidéos de la session, écran maintenu allumé, zone sûre en bas sur mobile.
+
+Limite : la capture web passe par le DOM (html-to-image), donc elle reste plus lente que l'appli Flutter.
