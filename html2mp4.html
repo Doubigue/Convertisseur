@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HTML animé → MP4</title>
+<style>
+:root{--bg:#fafafc;--fg:#1b1b1f;--card:#eceef8;--ac:#4355b9;--on:#fff;--mut:#666;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#121216;--fg:#e4e4ea;--card:#1f2028;--ac:#9fb0ff;--on:#111;--mut:#9a9aa5}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+main{max-width:720px;margin:auto;padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px));display:grid;gap:12px}
+body.docked main{padding-bottom:calc(170px + env(safe-area-inset-bottom,0px))}
+h1{font-size:1.3rem;margin:0}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+label{font-size:.8rem;color:var(--mut);display:grid;gap:2px;flex:1;min-width:80px}
+input[type=number],textarea{width:100%;padding:8px;border:1px solid #8884;border-radius:8px;background:var(--card);color:var(--fg);font:inherit}
+textarea{min-height:130px;font:13px monospace}
+button,.btn{padding:10px 14px;border:0;border-radius:20px;background:var(--card);color:var(--fg);font:inherit;cursor:pointer}
+button.pri{background:var(--ac);color:var(--on);width:100%}button:disabled{opacity:.5}
+.seg button.on{background:var(--ac);color:var(--on)}.seg{display:flex;gap:6px}.seg button{flex:1}
+#stage{background:#8883;border-radius:8px;overflow:hidden;position:relative}
+#stage iframe{border:0;position:absolute;top:0;left:0;transform-origin:0 0;background:#fff}
+progress{width:100%;height:12px;accent-color:var(--ac)}small{color:var(--mut)}
+.seg{flex-wrap:wrap}.seg button{flex:1 1 30%}
+select{padding:10px;border-radius:12px;border:1px solid #8884;background:var(--card);color:var(--fg);font:inherit}
+input[type=range]{width:100%}
+#dock{position:fixed;left:0;right:0;bottom:0;z-index:9;background:var(--card);box-shadow:0 -4px 18px #0004;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:grid;gap:8px}
+#dock[hidden]{display:none}
+#dock .top{display:flex;gap:12px;align-items:center;max-width:720px;width:100%;margin:auto}
+#dock canvas{width:56px;height:56px;border-radius:8px;background:#8883;object-fit:cover;flex:none}
+#dock .tx{flex:1;min-width:0;display:grid}#dock .tx b{font-size:.95rem}#dock .tx span{font-size:.8rem;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pc{font-size:1.9rem;font-weight:700;font-variant-numeric:tabular-nums}
+#dock progress,#dock .bar{max-width:720px;margin:auto}#cancel{justify-self:end;padding:6px 14px}
+#hist{display:grid;gap:6px}#hist .it{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--card);padding:8px 12px;border-radius:12px;font-size:.85rem}
+.chk{flex:0 0 100%;display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:1rem}video{width:100%;max-height:70vh;background:#000;border-radius:8px}
+</style></head><body><main>
+<h1>HTML animé → MP4</h1>
+<div class="seg" id="fmt"><button class="on" data-f="p">Portrait 9:16</button><button data-f="l">Paysage 16:9</button><button data-f="s">Carré 1:1</button></div>
+<div class="seg" id="rsz"><button data-r="480">SD 480p</button><button class="on" data-r="720">HD 720p</button><button data-r="1080">Full HD 1080p</button></div>
+<div class="row">
+ <label>Largeur<input id="w" type="number" value="720"></label>
+ <label>Hauteur<input id="h" type="number" value="1280"></label>
+ <label>FPS<input id="fps" type="number" value="30"></label>
+</div>
+<div class="row">
+ <label class="chk"><input type="checkbox" id="auto" checked>Durée automatique (calculée d'après le HTML)</label>
+ <label>Durée (s)<input id="dur" type="number" value="4" step="0.1" disabled></label>
+ <button id="det">Détecter</button>
+</div>
+<div class="row">
+ <label>Vitesse de conversion<select id="spq"><option value="0.5">Express (images réduites)</option><option value="0.75" selected>Rapide</option><option value="1">Qualité maximale</option></select></label>
+ <label class="chk"><input type="checkbox" id="fade">Fondu d'entrée et de sortie (0,4 s)</label>
+</div>
+<div id="stage"></div>
+<textarea id="html" spellcheck="false"></textarea>
+<div class="row">
+ <label class="btn">Ouvrir un .html<input id="fh" type="file" accept=".html,.htm" hidden></label>
+ <label class="btn">Projet .zip (HTML + sons)<input id="fz" type="file" accept=".zip" hidden></label>
+ <label class="btn">♪ Musique de fond<input id="fm" type="file" accept="audio/*" hidden></label>
+</div>
+<label id="mvl" hidden>Volume de la musique : <b id="mvv">100 %</b><input id="mv" type="range" min="0" max="1" step="0.05" value="1"></label>
+<small id="info"></small>
+<button class="pri" id="go">Convertir en MP4</button>
+<div id="st"></div>
+<div id="res" hidden>
+ <video id="vid" controls loop playsinline></video>
+ <div class="row"><select id="spd"><option>0.25</option><option>0.5</option><option selected>1</option><option>1.5</option><option>2</option></select>
+ <a class="btn" id="dl" download="video.mp4">Télécharger le MP4</a></div>
+</div>
+<div id="hist"></div>
+<small>Chrome, Edge ou Safari récents requis (WebCodecs). Garde l'onglet visible pendant la conversion (l'écran reste allumé automatiquement si possible).</small>
+</main>
+<div id="dock" hidden>
+ <div class="top"><canvas id="th" width="112" height="112"></canvas><div class="tx"><b id="ph">Préparation</b><span id="dt"></span><span id="el"></span></div><div id="pc">0 %</div></div>
+ <progress id="pg" value="0" max="1"></progress>
+ <button id="cancel" type="button">Annuler</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
+<script>
+const SHIM="\n(function () {\n  let virtual = 0, id = 0, uid = 0, tid = 0, rafs = [], rafCount = 0,\n      toCount = 0, ivCount = 0, saw = false, autoDone = false;\n  const d0 = Date.now();\n  // R\u00e9f\u00e9rences r\u00e9elles : servent \u00e0 attendre un vrai rendu apr\u00e8s chaque __seek.\n  const realRaf = window.requestAnimationFrame.bind(window);\n  const realSt = window.setTimeout.bind(window);\n  window.__paint = n => new Promise(res => {\n    let d = false; const f = () => { if (!d) { d = true; res(1); } };\n    realSt(f, 150);\n    const step = k => (k <= 0 ? f() : realRaf(() => step(k - 1)));\n    step(n || 1);\n  });\n  const timers = new Map();\n  const audioEvents = window.__audioEvents = [];\n\n  ['animationstart', 'transitionstart'].forEach(e =>\n    document.addEventListener(e, () => { saw = true; }, true));\n\n  // ---- Horloge virtuelle\n  window.requestAnimationFrame = cb => { rafCount++; rafs.push([++id, cb]); return id; };\n  window.cancelAnimationFrame = i => { rafs = rafs.filter(r => r[0] !== i); };\n  const mk = s => (typeof s === 'function' ? s : () => (0, eval)(String(s)));\n  window.setTimeout = (cb, ms, ...a) => {\n    toCount++;\n    timers.set(++tid, { due: virtual + Math.max(+ms || 0, 0), cb: mk(cb), a, iv: 0 });\n    return tid;\n  };\n  window.setInterval = (cb, ms, ...a) => {\n    ivCount++;\n    const iv = Math.max(+ms || 0, 1);\n    timers.set(++tid, { due: virtual + iv, cb: mk(cb), a, iv });\n    return tid;\n  };\n  window.clearTimeout = window.clearInterval = i => { timers.delete(i); };\n  performance.now = () => virtual;\n  Date.now = () => d0 + virtual;\n\n  // ---- Enregistrement audio : \u00e9l\u00e9ments <audio>/<video>\n  const mid = new WeakMap();\n  const idOf = el => { if (!mid.has(el)) mid.set(el, ++uid); return mid.get(el); };\n  HTMLMediaElement.prototype.play = function () {\n    let s = this.currentSrc || this.src;\n    if (!s) { const so = this.querySelector('source'); if (so) s = so.src; }\n    if (s) {\n      audioEvents.push({\n        k: 'play', id: idOf(this), src: new URL(s, document.baseURI).href,\n        t: virtual, off: this.currentTime || 0, loop: !!this.loop,\n        rate: this.playbackRate || 1, vol: this.muted ? 0 : this.volume\n      });\n    }\n    return Promise.resolve();\n  };\n  HTMLMediaElement.prototype.pause = function () {\n    audioEvents.push({ k: 'stop', id: idOf(this), t: virtual });\n  };\n\n  // ---- Enregistrement audio : Web Audio API\n  const abUrl = new WeakMap(), bufUrl = new WeakMap();\n  const of = window.fetch;\n  if (of) {\n    window.fetch = function (input) {\n      let url = null;\n      try { url = new URL(typeof input === 'string' ? input : input.url, document.baseURI).href; } catch (e) {}\n      return of.apply(this, arguments).then(res => {\n        const ab = res.arrayBuffer.bind(res);\n        res.arrayBuffer = () => ab().then(b => { if (url) abUrl.set(b, url); return b; });\n        return res;\n      });\n    };\n  }\n  const oo = XMLHttpRequest.prototype.open;\n  XMLHttpRequest.prototype.open = function (m, u) {\n    this.addEventListener('load', () => {\n      try {\n        if (this.response instanceof ArrayBuffer)\n          abUrl.set(this.response, new URL(u, document.baseURI).href);\n      } catch (e) {}\n    });\n    return oo.apply(this, arguments);\n  };\n  const AC = window.BaseAudioContext || window.AudioContext || window.webkitAudioContext;\n  if (AC) {\n    const od = AC.prototype.decodeAudioData;\n    AC.prototype.decodeAudioData = function (ab, ok, err) {\n      const url = abUrl.get(ab);\n      const tag = b => { if (url && b) bufUrl.set(b, url); return b; };\n      const p = od.call(this, ab, ok ? b => ok(tag(b)) : undefined, err);\n      return p && p.then ? p.then(tag) : p;\n    };\n  }\n  const ASN = window.AudioBufferSourceNode;\n  if (ASN) {\n    const rel = (node, when) => {\n      const now = node.context.currentTime;\n      return when && when > now ? (when - now) * 1000 : 0;\n    };\n    ASN.prototype.start = function (when, offset, dur) {\n      const url = bufUrl.get(this.buffer);\n      if (url) {\n        this.__id = ++uid;\n        audioEvents.push({\n          k: 'play', id: this.__id, src: url, t: virtual + rel(this, when),\n          off: offset || 0, loop: !!this.loop, rate: this.playbackRate.value,\n          vol: 1, dur: dur\n        });\n      }\n    };\n    ASN.prototype.stop = function (when) {\n      if (this.__id)\n        audioEvents.push({ k: 'stop', id: this.__id, t: virtual + rel(this, when) });\n    };\n  }\n\n  window.__isAnimated = () =>\n    saw || rafCount > 0 || ivCount > 0 || toCount > 1 ||\n    document.getAnimations().length > 0 ||\n    !!document.querySelector('animate,animateTransform,animateMotion,set');\n\n  // ---- Mesure de la dur\u00e9e : simule le temps virtuel sans capture.\n  // Retourne { end, loop, infinite } en ms.\n  window.__measure = function (maxMs) {\n    const step = 1000 / 30;\n    let endFinite = 0, loopLen = 0, lastActive = 0, stillActive = false;\n    for (let t = 0; t <= maxMs; t += step) {\n      window.__seek(t);\n      if (rafs.length > 0 || timers.size > 0) { lastActive = t; stillActive = true; }\n      else stillActive = false;\n      document.getAnimations().forEach(a => {\n        try {\n          const ct = a.effect.getComputedTiming();\n          const dur = +ct.duration || 0, del = +ct.delay || 0, ed = +ct.endDelay || 0;\n          if (ct.iterations === Infinity) {\n            const alt = /alternate/.test(ct.direction) ? 2 : 1;\n            loopLen = Math.max(loopLen, del + dur * alt);\n          } else if (isFinite(ct.endTime)) {\n            endFinite = Math.max(endFinite, ct.endTime + ed);\n          }\n        } catch (e) {}\n      });\n    }\n    document.querySelectorAll('animate,animateTransform,animateMotion,set').forEach(n => {\n      const p = v => { v = String(v || '').trim(); const m = v.match(/^([\\d.]+)(ms|s)?$/);\n        return m ? parseFloat(m[1]) * (m[2] === 'ms' ? 1 : 1000) : 0; };\n      const b = p((n.getAttribute('begin') || '0').split(';')[0]);\n      const d = p(n.getAttribute('dur'));\n      const rc = n.getAttribute('repeatCount'), rd = p(n.getAttribute('repeatDur'));\n      if (rc === 'indefinite' || n.getAttribute('repeatDur') === 'indefinite') loopLen = Math.max(loopLen, b + d);\n      else endFinite = Math.max(endFinite, b + (rd || d * (parseFloat(rc) || 1)));\n    });\n    // t\u00e2che JS (rAF / timers) qui s'arr\u00eate d'elle-m\u00eame\n    if (!stillActive && lastActive > 0) endFinite = Math.max(endFinite, lastActive + step);\n    return JSON.stringify({\n      end: endFinite, loop: loopLen,\n      infinite: stillActive, audio: audioEvents.slice()\n    });\n  };\n\n  window.__seek = function (t) {\n    let guard = 0;\n    while (guard++ < 20000) {\n      let best = null, bid = null;\n      timers.forEach((v, k) => { if (v.due <= t && (!best || v.due < best.due)) { best = v; bid = k; } });\n      if (!best) break;\n      virtual = Math.max(virtual, best.due);\n      if (best.iv) best.due += best.iv; else timers.delete(bid);\n      try { best.cb(...best.a); } catch (e) {}\n    }\n    virtual = t;\n    if (!autoDone) {\n      autoDone = true;\n      document.querySelectorAll('audio[autoplay],video[autoplay]').forEach(el => el.play());\n    }\n    document.getAnimations().forEach(a => { try { a.pause(); a.currentTime = t; } catch (e) {} });\n    document.querySelectorAll('svg').forEach(s => {\n      try { s.pauseAnimations(); s.setCurrentTime(t / 1000); } catch (e) {}\n    });\n    const cbs = rafs; rafs = [];\n    cbs.forEach(([_, cb]) => { try { cb(virtual); } catch (e) {} });\n  };\n})();\n";
+const H2I='https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
+const SAMPLE='<html><body style="margin:0;background:#111;display:grid;place-items:center;height:100vh">\n<div style="width:120px;height:120px;border-radius:24px;background:#6c8cff;animation:m 2s ease-in-out infinite alternate"></div>\n<style>@keyframes m{from{transform:translateX(-120px) rotate(0)}to{transform:translateX(120px) rotate(360deg);background:#ff6c9a}}</style>\n</body></html>';
+const $=id=>document.getElementById(id),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const BASE=new URL('.',location.href).href;
+let zipHtml=null,zipName='',blobMap={},revMap={},zipFiles={},musicBuf=null,busy=false,bytes={},bufs={};
+$('html').value=SAMPLE;
+const even=n=>Math.max(2,Math.round(n/2)*2),W=()=>even(+$('w').value||720),H=()=>even(+$('h').value||1280);
+const say=t=>$('st').textContent=t, setBusy=b=>{busy=b;document.querySelectorAll('button,input,select').forEach(e=>{if(e.id!=='dur'&&e.id!=='cancel')e.disabled=b});$('dur').disabled=b||$('auto').checked};
+
+// ---------- Orientation / durée auto
+let fmtK='p',resK=720,cancel=false;
+function applySize(){const s=resK,l=even(s*16/9);$('w').value=fmtK==='p'?s:fmtK==='l'?l:s;$('h').value=fmtK==='p'?l:fmtK==='l'?s:s;fit()}
+const pick=(id,on)=>$(id).onclick=e=>{const b=e.target.closest('button');if(!b||busy)return;[...$(id).children].forEach(x=>x.classList.toggle('on',x===b));on(b);applySize()};
+pick('fmt',b=>fmtK=b.dataset.f);pick('rsz',b=>resK=+b.dataset.r);
+$('auto').onchange=()=>$('dur').disabled=$('auto').checked;$('dur').disabled=true;
+$('w').oninput=$('h').oninput=fit;
+function fit(){const s=$('stage'),k=Math.min(1,s.clientWidth/W(),340/H());s.style.height=H()*k+'px';const f=s.firstChild;if(f)f.style.transform='scale('+k+')'}
+addEventListener('resize',fit);
+
+// ---------- Sources
+const MIME={css:'text/css',js:'text/javascript',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',m4a:'audio/mp4',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',svg:'image/svg+xml',webp:'image/webp',woff:'font/woff',woff2:'font/woff2',ttf:'font/ttf',json:'application/json'};
+const ext=n=>n.toLowerCase().split('.').pop();
+const norm=(p,dir)=>{if(/^(https?:|data:|blob:|#|\/\/)/i.test(p))return null;
+ try{return decodeURIComponent(new URL(p.split('#')[0].split('?')[0],'http://h/'+dir).pathname.slice(1))}catch(e){return null}};
+function rewrite(t,dir){const L=p=>{const k=norm(p,dir);return k&&blobMap[k]};
+ return t.replace(/\b(src|href|poster)=(["'])([^"']+)\2/gi,(m,a,q,p)=>L(p)?a+'='+q+L(p)+q:m)
+  .replace(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi,(m,q,p)=>L(p)?'url('+L(p)+')':m)}
+$('fh').onchange=async e=>{const f=e.target.files[0];if(!f)return;zipHtml=null;zipName='';$('html').value=await f.text();$('info').textContent='Fichier : '+f.name;e.target.value=''};
+$('fm').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{musicBuf=await decode(await f.arrayBuffer());$('info').textContent='Musique : '+f.name;$('mvl').hidden=false}catch(x){say('Musique illisible : '+x)}e.target.value=''};
+$('mv').oninput=()=>$('mvv').textContent=Math.round($('mv').value*100)+' %';
+$('fz').onchange=async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';setBusy(true);say('Extraction du projet…');
+ try{const z=await JSZip.loadAsync(f);zipFiles={};blobMap={};revMap={};bytes={};bufs={};
+  const names=Object.keys(z.files).filter(n=>!z.files[n].dir&&!n.includes('..')&&!n.startsWith('__MACOSX'));
+  const htmls=names.filter(n=>/\.html?$/i.test(n)).sort((a,b)=>(a.split('/').length-b.split('/').length)||((/index\.html$/i.test(a)?0:1)-(/index\.html$/i.test(b)?0:1)));
+  if(!htmls.length)throw Error('aucun .html dans le zip');
+  const entry=htmls[0],dir=entry.includes('/')?entry.slice(0,entry.lastIndexOf('/')+1):'';
+  const rel=n=>n.startsWith(dir)?n.slice(dir.length):n;
+  for(const n of names){zipFiles[rel(n)]=z.files[n]}
+  for(const n of names.filter(n=>!/\.(html?|css)$/i.test(n))){const ab=await z.files[n].async('arraybuffer');bytes[rel(n)]=ab;
+   const u=URL.createObjectURL(new Blob([ab],{type:MIME[ext(n)]||'application/octet-stream'}));blobMap[rel(n)]=u;revMap[u]=rel(n)}
+  for(const n of names.filter(n=>/\.css$/i.test(n))){const r=rel(n),d=r.includes('/')?r.slice(0,r.lastIndexOf('/')+1):'';
+   const u=URL.createObjectURL(new Blob([rewrite(await z.files[n].async('string'),d)],{type:'text/css'}));blobMap[r]=u;revMap[u]=r}
+  zipHtml=rewrite(await z.files[entry].async('string'),'');zipName=f.name+' → '+entry;
+  $('html').value='';$('info').textContent='Projet : '+zipName;say('Projet chargé ✓')}
+ catch(x){say('Erreur : '+x.message)}setBusy(false)};
+
+// ---------- Page dans l'iframe (horloge virtuelle injectée)
+function buildDoc(html){
+ const res=`(function(){const M=window.__map,B=${JSON.stringify(BASE)};
+ const R=u=>{try{const s=new URL(u,document.baseURI).href;if(s.startsWith(B)){const k=decodeURIComponent(s.slice(B.length).split(/[?#]/)[0]);if(M[k])return M[k]}}catch(e){}return u};
+ window.__real={raf:window.requestAnimationFrame.bind(window),st:window.setTimeout.bind(window)};
+ const f=window.fetch;window.fetch=function(i,o){return f.call(this,typeof i==='string'?R(i):i,o)};
+ const xo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){arguments[1]=R(u);return xo.apply(this,arguments)};
+ [HTMLImageElement,HTMLMediaElement,HTMLSourceElement].forEach(C=>{const d=Object.getOwnPropertyDescriptor(C.prototype,'src');if(d)Object.defineProperty(C.prototype,'src',{get:d.get,set(v){d.set.call(this,R(v))}})});})();`;
+ const map={};for(const k in blobMap)map[k]=blobMap[k];
+ const pre='<script>window.__map='+JSON.stringify(map).replace(/</g,'\\u003c')+';'+res+'<\/script><script>'+SHIM+'<\/script>';
+ const lib='<script src="'+H2I+'"><\/script>';
+ let m;if(m=html.match(/<head[^>]*>/i))html=html.replace(m[0],()=>m[0]+pre);
+ else if(m=html.match(/<html[^>]*>/i))html=html.replace(m[0],()=>m[0]+pre);
+ else if(m=html.match(/<!doctype[^>]*>/i))html=html.replace(m[0],()=>m[0]+pre);else html=pre+html;
+ return /<\/body>/i.test(html)?html.replace(/<\/body>/i,()=>lib+'</body>'):html+lib}
+function load(){return new Promise((ok,ko)=>{const st=$('stage');st.innerHTML='';const f=document.createElement('iframe');
+ f.style.width=W()+'px';f.style.height=H()+'px';st.appendChild(f);fit();
+ f.onload=async()=>{try{const w=f.contentWindow;for(let i=0;i<150&&!w.htmlToImage;i++)await sleep(100);await sleep(800);ok(w)}catch(e){ko(e)}};
+ f.srcdoc=buildDoc(zipHtml??$('html').value)})}
+
+// ---------- Audio
+const fileFor=src=>{if(revMap[src])return revMap[src];if(src.startsWith(BASE)){const k=decodeURIComponent(src.slice(BASE.length).split(/[?#]/)[0]);if(zipFiles[k])return k}return null};
+async function decode(ab){return new OfflineAudioContext(2,1,48000).decodeAudioData(ab.slice(0))}
+async function audioFor(src){const k=fileFor(src);if(!k)return null;if(bufs[k]!==undefined)return bufs[k];
+ try{const ab=bytes[k]||await zipFiles[k].async('arraybuffer');return bufs[k]=await decode(ab)}catch(e){return bufs[k]=null}}
+async function sounds(w,dur){const open={},out=[];
+ for(const e of JSON.parse(JSON.stringify(w.__audioEvents||[]))){
+  if(e.k==='play'){const buf=await audioFor(e.src);if(!buf||!(e.vol>0)||e.t/1000>=dur)continue;
+   const s={buf,t:e.t/1000,off:e.off||0,vol:Math.min(1,e.vol),rate:Math.min(2,Math.max(.5,e.rate||1)),loop:!!e.loop,dur:e.dur};open[e.id]=s;out.push(s)}
+  else{const s=open[e.id];if(s&&s.dur==null&&e.t/1000>s.t)s.dur=e.t/1000-s.t;delete open[e.id]}}
+ return out.slice(0,64)}
+async function mix(list,dur){if(!musicBuf&&!list.length)return null;const SR=48000,oc=new OfflineAudioContext(2,Math.ceil(dur*SR),SR),mg=oc.createGain();mg.gain.value=.9;mg.connect(oc.destination);
+ const add=(buf,t,off,vol,rate,loop,d)=>{const s=oc.createBufferSource(),g=oc.createGain();s.buffer=buf;s.loop=loop;s.playbackRate.value=rate;g.gain.value=vol;s.connect(g).connect(mg);
+  if(d!=null)s.start(t,off,d);else s.start(t,off);return g};
+ if(musicBuf){const v=(list.length?.6:1)*(+$('mv').value),g=add(musicBuf,0,0,v,1,true);if(dur>2){g.gain.setValueAtTime(v,dur-1);g.gain.linearRampToValueAtTime(0,dur)}}
+ for(const s of list)add(s.buf,s.t,s.off,s.vol,s.rate,s.loop,s.dur);
+ return oc.startRendering()}
+
+// ---------- Mesure de la durée
+async function measure(w){const m=JSON.parse(w.__measure(120000));let end=m.end;
+ for(const e of m.audio){if(e.k!=='play'||e.loop)continue;const b=await audioFor(e.src);if(!b)continue;
+  const r=Math.min(2,Math.max(.5,e.rate||1)),len=e.dur!=null?e.dur:b.duration-(e.off||0);end=Math.max(end,e.t+len/r*1000)}
+ const s=end>0?end/1000:m.loop>0?m.loop/1000:10;return Math.ceil(Math.min(120,Math.max(1,s))*10)/10}
+$('det').onclick=async()=>{setBusy(true);try{say('Calcul de la durée…');const w=await load();
+ if(!w.__isAnimated())throw Error('ce HTML n\'est pas animé');const d=await measure(w);$('dur').value=d;await load();say('Durée détectée : '+d+' s')}
+ catch(e){say('Erreur : '+e.message)}setBusy(false)};
+
+// ---------- Export
+async function snap(w,o){const v={r:w.requestAnimationFrame,s:w.setTimeout};w.requestAnimationFrame=w.__real.raf;w.setTimeout=w.__real.st;
+ try{return await w.htmlToImage.toCanvas(w.document.body,o)}finally{w.requestAnimationFrame=v.r;w.setTimeout=v.s}}
+const fmtS=s=>s<60?s+' s':Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s';
+const prog=(v,ph,dt,t0)=>{v=Math.max(0,Math.min(1,v));$('pg').value=v;$('pc').textContent=Math.floor(v*100)+' %';$('ph').textContent=ph;$('dt').textContent=dt||'';
+ if(t0)$('el').textContent='écoulé '+fmtS(Math.round((performance.now()-t0)/1000));document.title=Math.floor(v*100)+' % · HTML→MP4'};
+let wl=null,hn=0;
+$('cancel').onclick=()=>{cancel=true;$('ph').textContent='Annulation…'};
+$('go').onclick=async()=>{
+ if(!window.VideoEncoder)return say('Ce navigateur ne gère pas WebCodecs : utilise Chrome ou Edge.');
+ cancel=false;setBusy(true);$('res').hidden=true;$('dock').hidden=false;document.body.classList.add('docked');$('th').getContext('2d').clearRect(0,0,112,112);
+ const T0=performance.now();let enc=null;
+ try{wl=await navigator.wakeLock?.request('screen')}catch(e){}
+ try{const fps=Math.max(1,Math.min(60,+$('fps').value||30)),w0=W(),h0=H(),ratio=+$('spq').value||1,fade=$('fade').checked;
+  prog(0,'Préparation','Chargement de la page…',T0);say('');
+  let w=await load();if(!w.__isAnimated())throw Error('ce HTML n\'est pas animé, export refusé');
+  let dur=Math.max(.5,+$('dur').value||4);
+  if($('auto').checked){prog(.01,'Préparation','Calcul de la durée…',T0);dur=await measure(w);$('dur').value=dur;w=await load()}
+  if(cancel)throw Error('annulé');
+  const total=Math.max(1,Math.round(dur*fps)),bitrate=Math.round(w0*h0*fps*.15);
+  let vcfg;for(const codec of['avc1.640028','avc1.4d0028','avc1.42001f']){const c={codec,width:w0,height:h0,bitrate,framerate:fps,avc:{format:'avc'}};
+   if((await VideoEncoder.isConfigSupported(c)).supported){vcfg=c;break}}
+  if(!vcfg)throw Error('encodage H.264 non disponible dans ce navigateur');
+  const chunks=[];let encErr=null;enc=new VideoEncoder({output:(c,m)=>chunks.push([c,m]),error:e=>{encErr=e}});enc.configure(vcfg);
+  const cs=w.getComputedStyle(w.document.body),tr=c=>!c||c==='rgba(0, 0, 0, 0)'||c==='transparent';
+  const bg=!tr(cs.backgroundColor)?cs.backgroundColor:(!tr(w.getComputedStyle(w.document.documentElement).backgroundColor)?w.getComputedStyle(w.document.documentElement).backgroundColor:'#ffffff');
+  let fontCSS='';try{fontCSS=await w.htmlToImage.getFontEmbedCSS(w.document.body)}catch(e){}
+  const cv=document.createElement('canvas');cv.width=w0;cv.height=h0;const cx=cv.getContext('2d');
+  const tcx=$('th').getContext('2d');
+  const opt={width:w0,height:h0,pixelRatio:ratio,fontEmbedCSS:fontCSS,backgroundColor:bg,filter:n=>n.tagName!=='SCRIPT'};
+  const C0=performance.now();
+  for(let i=0;i<total;i++){
+   if(cancel)throw Error('annulé');if(encErr)throw encErr;
+   w.__seek(i*1000/fps); // pas de pause : html-to-image lit l'état du DOM tout de suite
+   const c=await snap(w,opt);
+   cx.fillStyle=bg;cx.fillRect(0,0,w0,h0);cx.drawImage(c,0,0,w0,h0);
+   if(fade){const t=i/fps,a=Math.min(1,t/.4,(dur-t)/.4);if(a<1){cx.globalAlpha=1-Math.max(0,a);cx.fillStyle='#000';cx.fillRect(0,0,w0,h0);cx.globalAlpha=1}}
+   const vf=new VideoFrame(cv,{timestamp:Math.round(i*1e6/fps),duration:Math.round(1e6/fps)});enc.encode(vf,{keyFrame:i%(fps*2)===0});vf.close();
+   while(enc.encodeQueueSize>6)await sleep(2);
+   const done=i+1,per=(performance.now()-C0)/done,eta=Math.round(per*(total-done)/1000);
+   if(i%4===0){const k=Math.max(112/w0,112/h0);tcx.clearRect(0,0,112,112);tcx.drawImage(cv,(112-w0*k)/2,(112-h0*k)/2,w0*k,h0*k)}
+   prog(done/total*.85,'Capture des images',done+' / '+total+' · '+(1000/per).toFixed(1)+' img/s · reste ~'+fmtS(eta),T0);
+   if(i%8===0)await sleep(0)}
+  await enc.flush();enc.close();enc=null;
+  prog(.88,'Mixage audio','',T0);const list=await sounds(w,dur),abuf=await mix(list,dur);
+  if(cancel)throw Error('annulé');
+  let acfg,amc;if(abuf){for(const[codec,mc]of[['mp4a.40.2','aac'],['opus','opus']]){const c={codec,sampleRate:48000,numberOfChannels:2,bitrate:192000,...(mc==='aac'?{aac:{format:'aac'}}:{})};
+   if((await AudioEncoder.isConfigSupported(c)).supported){acfg=c;amc=mc;break}}}
+  prog(.93,'Encodage MP4','Assemblage du fichier…',T0);
+  const mux=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),fastStart:'in-memory',video:{codec:'avc',width:w0,height:h0},
+   ...(acfg?{audio:{codec:amc,numberOfChannels:2,sampleRate:48000}}:{})});
+  for(const[c,m]of chunks)mux.addVideoChunk(c,m);
+  if(acfg){const ae=new AudioEncoder({output:(c,m)=>mux.addAudioChunk(c,m),error:e=>{throw e}});ae.configure(acfg);
+   const L=abuf.getChannelData(0),R=abuf.numberOfChannels>1?abuf.getChannelData(1):L,N=4096;
+   for(let s=0;s<L.length;s+=N){const n=Math.min(N,L.length-s),d=new Float32Array(n*2);d.set(L.subarray(s,s+n),0);d.set(R.subarray(s,s+n),n);
+    const ad=new AudioData({format:'f32-planar',sampleRate:48000,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(s/48000*1e6),data:d});ae.encode(ad);ad.close()}
+   await ae.flush();ae.close()}
+  mux.finalize();const blob=new Blob([mux.target.buffer],{type:'video/mp4'}),url=URL.createObjectURL(blob);
+  const d=new Date(),p2=n=>String(n).padStart(2,'0'),name='html2mp4_'+p2(d.getHours())+p2(d.getMinutes())+p2(d.getSeconds())+'.mp4';
+  $('vid').src=url;$('dl').href=url;$('dl').download=name;$('res').hidden=false;prog(1,'Terminé','en '+fmtS(Math.round((performance.now()-T0)/1000)),T0);
+  const it=document.createElement('div');it.className='it';it.innerHTML='<span></span><span><a class="btn" style="padding:4px 10px" href="#">Lire</a> <a class="btn" style="padding:4px 10px" download>Télécharger</a></span>';
+  it.firstChild.textContent=name+' · '+dur+' s · '+(blob.size/1048576).toFixed(1)+' Mo';it.querySelector('a').onclick=e=>{e.preventDefault();$('vid').src=url;$('dl').href=url;$('dl').download=name;$('res').hidden=false;$('vid').play()};
+  const dla=it.querySelectorAll('a')[1];dla.href=url;dla.download=name;$('hist').prepend(it);
+  say('Vidéo terminée ✓ en '+fmtS(Math.round((performance.now()-T0)/1000))+' ('+dur+' s'+(list.length?', '+list.length+' son(s) de la page mixé(s)':'')+')');
+  try{navigator.vibrate?.(200)}catch(e){}
+ }catch(e){say(cancel||/annul/.test(e&&e.message)?'Conversion annulée.':'Erreur : '+(e&&e.message||e))}
+ try{enc&&enc.state!=='closed'&&enc.close()}catch(e){}
+ try{await wl?.release()}catch(e){}wl=null;
+ document.title='HTML animé → MP4';setBusy(false);$('dock').hidden=true;document.body.classList.remove('docked')};
+$('spd').onchange=()=>$('vid').playbackRate=+$('spd').value;
+applySize();
+</script></body></html>
